@@ -119,11 +119,15 @@ const App = (function () {
         title: 'Backend Web App Endpoint Configuration',
         content: `
           <div style="font-size: 13.5px; line-height: 1.6; color: var(--color-text);">
-            <p>Paste the deployed <b>Google Apps Script Web App URL</b> below:</p>
+            <p>Enter or inspect the deployed <b>Google Apps Script Web App URL</b>:</p>
             <div class="form-group">
               <label class="form-label" for="cfgBackendUrl">Web App URL (exec):</label>
               <input type="url" id="cfgBackendUrl" class="input-field" placeholder="https://script.google.com/macros/s/.../exec" value="${escapeHtml(currentUrl)}">
-              <div class="form-hint">Leave blank to use the built-in offline simulation mode.</div>
+              <div class="form-hint">Must end in <code>/exec</code> and be deployed with <b>Who has access: Anyone</b>.</div>
+            </div>
+            <div id="cfgTestResult" style="margin-top: 10px; font-size: 13px; display: none;"></div>
+            <div style="margin-top: 14px;">
+              <button type="button" id="btnTestEndpoint" class="btn btn-secondary btn-sm" style="padding: 6px 14px; font-weight: 600;">⚡ Test Connection</button>
             </div>
           </div>
         `,
@@ -131,12 +135,40 @@ const App = (function () {
         onConfirm: () => {
           const input = document.getElementById('cfgBackendUrl');
           if (input) {
-            API.setBackendUrl(input.value.trim());
+            const val = input.value.trim();
+            API.setBackendUrl(val);
             showToast('Endpoint configuration saved.', 'success');
             applyBranding();
           }
         }
       });
+
+      setTimeout(() => {
+        const testBtn = document.getElementById('btnTestEndpoint');
+        const input = document.getElementById('cfgBackendUrl');
+        const resultEl = document.getElementById('cfgTestResult');
+        if (testBtn && input && resultEl) {
+          testBtn.onclick = async () => {
+            const val = input.value.trim();
+            if (!val) {
+              resultEl.style.display = 'block';
+              resultEl.innerHTML = '<span style="color: var(--color-danger, #ef4444);">Please enter a URL to test.</span>';
+              return;
+            }
+            resultEl.style.display = 'block';
+            resultEl.innerHTML = '<span style="color: var(--color-primary, #2D0A4E);">Pinging endpoint...</span>';
+            const original = API.getBackendUrl();
+            API.setBackendUrl(val);
+            const res = await API.callBackend('ping', {}, 'Testing database connection...');
+            if (res && res.success) {
+              resultEl.innerHTML = `<span style="color: #10b981; font-weight: 600;">✅ Connected successfully! (${escapeHtml(res.message || 'SICSS Backend online')})</span>`;
+            } else {
+              if (original) API.setBackendUrl(original);
+              resultEl.innerHTML = `<span style="color: var(--color-danger, #ef4444); font-weight: 600;">❌ Connection failed: ${escapeHtml(res && res.message ? res.message : 'No response from server.')}</span>`;
+            }
+          };
+        }
+      }, 50);
     });
   }
 

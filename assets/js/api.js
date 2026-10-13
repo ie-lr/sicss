@@ -279,11 +279,16 @@ const API = (function () {
 
     } catch (err) {
       hideLoader();
-      console.error('[API:NetworkError]', err);
+      console.error('[API:NetworkError]', err, 'Target URL:', url);
+
+      const isFailedToFetch = String(err && err.message || '').toLowerCase().includes('failed to fetch');
+      const fetchDetail = isFailedToFetch
+        ? 'Failed to fetch (Check Google Apps Script Web App deployment: "Who has access" must be set to "Anyone", URL must end in "/exec", and permissions must be authorized).'
+        : (err && err.message || 'network error');
 
       // If network fails on a write action, alert the user and do NOT claim success
       if (isWriteAction) {
-        const errorMsg = 'Failed to reach database: ' + (err.message || 'Network error') + '. Check your internet connection or Google Apps Script deployment URL.';
+        const errorMsg = 'Failed to reach database: ' + fetchDetail;
         toastNotification(errorMsg, true);
         return {
           success: false,
@@ -295,7 +300,7 @@ const API = (function () {
       // No local fallback: only real database results are ever shown.
       return {
         success: false,
-        message: 'Could not reach the database: ' + (err.message || 'network error') + '.'
+        message: 'Could not reach the database: ' + fetchDetail
       };
     }
   }
