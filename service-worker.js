@@ -7,13 +7,22 @@
  * -----------------------------------------------------------------------
  */
 
-const CACHE_NAME = 'sicss-school-portal-v1.0';
+const CACHE_NAME = 'sicss-school-portal-v1.1';
 const SHELL_ASSETS = [
   './',
   './index.html',
+  './student.html',
+  './student/',
   './student-login.html',
-  './teacher-login.html',
+  './admin.html',
+  './admin/',
   './admin-login.html',
+  './teacher.html',
+  './teacher/',
+  './teacher-login.html',
+  './iedeveloper.html',
+  './iedeveloper/',
+  './i-e.com.html',
   './manifest-student.json',
   './manifest-teacher.json',
   './manifest-admin.json',
@@ -25,6 +34,7 @@ const SHELL_ASSETS = [
   './assets/js/admin.js',
   './assets/js/teacher.js',
   './assets/js/student.js',
+  './assets/js/iePortal.js',
   './assets/js/pwaInstall.js',
   './assets/js/app.js',
   './assets/js/reportCard.js',
