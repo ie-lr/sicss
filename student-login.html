@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Student Portal Sign In - Salvation In Christ School System</title>
+  <meta name="apple-mobile-web-app-title" content="SICSS Student">
+  <meta name="theme-color" content="#2D0A4E">
+  <link rel="apple-touch-icon" href="assets/images/school-logo.png">
+  <link rel="icon" type="image/png" href="assets/images/school-logo.png">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+
+  <!-- Offline Status Bar -->
+  <div id="offlineIndicator" class="offline-bar hidden">You are currently offline. Changes are saved locally and will auto-sync when connected.</div>
+
+  <!-- Global Loader Overlay -->
+  <div id="globalLoader" class="global-loader-overlay hidden">
+    <div class="loader-spinner"></div>
+    <div class="loader-text">Communicating with Core System...</div>
+  </div>
+
+  <!-- Subtle {Success} Toast -->
+  <div id="globalToast" class="global-toast hidden"></div>
+
+  <!-- Site Header -->
+  <header id="siteHeader" class="site-header">
+    <div class="brand-wrap">
+      <img id="headerLogo" src="assets/images/school-logo.png" alt="School Logo" class="brand-logo">
+      <div class="brand-text">
+        <h1 id="headerSchoolName">Salvation In Christ School System</h1>
+        <div id="headerMotto" class="motto">Equipping for a Better Future</div>
+      </div>
+    </div>
+    <div class="header-actions" id="headerActions">
+      <!-- Injected post-login -->
+    </div>
+  </header>
+
+  <!-- Dedicated Student Login Screen -->
+  <main id="loginScreen" class="gateway-container">
+
+    <!-- Dynamic Animated Slideshow Background (Backgrounds 1 - 6) -->
+    <div class="login-bg-slideshow css-animated" aria-hidden="true">
+      <div class="slide slide-1 active"></div>
+      <div class="slide slide-2"></div>
+      <div class="slide slide-3"></div>
+      <div class="slide slide-4"></div>
+      <div class="slide slide-5"></div>
+      <div class="slide slide-6"></div>
+      <div class="login-bg-overlay"></div>
+    </div>
+
+    <div class="gateway-card">
+      
+      <!-- Left: Student Login Form -->
+      <div class="gateway-form-pane">
+        
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+          <span class="badge badge-primary" style="font-size: 11.5px; letter-spacing: 0.5px; padding: 4px 10px;">STUDENT &amp; PARENT GATEWAY</span>
+        </div>
+
+        <!-- Feedback Alert Container -->
+        <div id="loginAlert" class="alert alert-danger hidden" role="alert"></div>
+
+        <!-- Student Form -->
+        <form id="studentLoginForm" class="login-role-form" autocomplete="off" onsubmit="return false;">
+          <h2 style="margin: 0 0 6px; color: var(--color-primary); font-size: 21px;">Student Portal Sign In</h2>
+          <p style="margin: 0 0 18px; font-size: 13px; color: var(--color-text-muted);">
+            Enter your Systematic Student ID and password to access your academic grades, term evaluations, and fee statement.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label" for="studentLoginId">Student ID</label>
+            <div class="id-prefix-group">
+              <span class="id-prefix" aria-hidden="true">SICSS-</span>
+              <input type="text" id="studentLoginId" class="input-field id-index-input" placeholder="001" inputmode="numeric" maxlength="6" required autocomplete="username" aria-label="Student ID index (after SICSS-)">
+            </div>
+            <div class="form-hint">Prefix <b>SICSS-</b> is automatic. Enter only your index, e.g. 001.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="studentLoginPass">Password</label>
+            <input type="password" id="studentLoginPass" class="input-field" placeholder="Enter your password" required autocomplete="current-password">
+          </div>
+
+          <button type="submit" id="studentLoginBtn" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 8px;">
+            Sign In as Student
+          </button>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 13px;">
+            <a href="#" class="recovery-code-trigger" style="margin-right:auto;">🔓 Unlock with recovery code</a>
+            <a href="#" class="forgot-pass-trigger">Forgot Password?</a>
+          </div>
+        </form>
+      </div>
+
+      <!-- Right: Branded School Panel -->
+      <div class="gateway-brand-pane">
+        <img id="paneLogo" src="assets/images/school-logo.png" alt="School Crest" class="pane-logo">
+        <div class="pane-title" id="paneSchoolName">Salvation In Christ School System</div>
+        <div class="pane-motto" id="paneMotto">Equipping for a Better Future</div>
+        <div class="pane-badge">Student &amp; Parent Access</div>
+        <div style="margin-top: 18px; font-size: 12px; opacity: 0.92; z-index: 1; font-weight: 500;">
+          Ganta City, Nimba County, Republic of Liberia
+        </div>
+        <div style="margin-top: 10px; font-size: 11.5px; opacity: 0.85; z-index: 1; font-weight: 600;">
+          Academic Year 2026–2027
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- PWA Install Button (Fixed) -->
+  <button id="installAppBtn" class="hidden" type="button" aria-label="Install App" style="display: flex; align-items: center; gap: 6px;">
+    <img src="assets/icons/download (2).png" style="width: 16px; height: 16px;" alt="">
+    <span>Install App</span>
+  </button>
+
+  <!-- Role-specific Panel Mount Point (Loaded post-auth) -->
+  <div id="appRoot"></div>
+
+  <!-- Modal Container -->
+  <div id="modalContainer"></div>
+
+  <!-- Scripts -->
+  <script src="assets/js/config.js?v=2.5"></script>
+  <script src="assets/js/api.js?v=2.5"></script>
+  <script src="assets/js/reportCard.js?v=2.5"></script>
+  <script src="assets/js/auth.js?v=2.5"></script>
+  <script src="assets/js/pwaInstall.js?v=2.5"></script>
+  <script src="assets/js/app.js?v=2.5"></script>
+
+</body>
+</html>

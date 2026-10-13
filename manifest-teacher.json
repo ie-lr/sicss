@@ -1,0 +1,19 @@
+{
+  "id": "sicss-teacher",
+  "name": "SICSS Teacher & Faculty Portal",
+  "short_name": "SICSS Teacher",
+  "description": "Salvation In Christ School System — Faculty Workstation, Grading, Rosters & Lesson Plans.",
+  "start_url": "./teacher-login.html",
+  "display": "standalone",
+  "scope": "./teacher-login.html",
+  "orientation": "portrait-primary",
+  "background_color": "#2D0A4E",
+  "theme_color": "#2D0A4E",
+  "icons": [
+    {
+      "src": "assets/images/school-logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}

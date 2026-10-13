@@ -1,0 +1,18 @@
+{
+  "name": "SICSS Portal - Staff",
+  "short_name": "SICSS Staff",
+  "description": "Salvation In Christ School System — Faculty Workstation, Grading, Rosters & Lesson Plans.",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#2D0A4E",
+  "theme_color": "#2D0A4E",
+  "icons": [
+    {
+      "src": "../assets/images/school-logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ],
+  "scope": "./"
+}

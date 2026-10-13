@@ -1,0 +1,19 @@
+{
+  "id": "sicss-admin",
+  "name": "SICSS Administrators Portal",
+  "short_name": "SICSS Admin",
+  "description": "Salvation In Christ School System — Executive Administration, Ledger, Audit, Students & Faculty Management.",
+  "start_url": "./admin-login.html",
+  "display": "standalone",
+  "scope": "./admin-login.html",
+  "orientation": "portrait-primary",
+  "background_color": "#2D0A4E",
+  "theme_color": "#2D0A4E",
+  "icons": [
+    {
+      "src": "assets/images/school-logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}

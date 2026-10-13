@@ -1,0 +1,672 @@
+/**
+ * student.js
+ * -----------------------------------------------------------------------
+ * Student Portal Module
+ * 
+ * Features:
+ * - Collapsible royal blue left sidebar navigation matching official theme.
+ * - Two-sided booklet report card with academic year selector for returning students.
+ * - Financial statement with Print and Download actions.
+ * - Messages & Notices tab.
+ * - Comprehensive Settings tab (profile photo, display name, contact, password, PWA install).
+ * - Replaces all emojis with standard PNG icons from assets/icons/.
+ * -----------------------------------------------------------------------
+ */
+
+window.StudentPanel = (function () {
+  let currentStudent = null;
+  let currentTab = 'reportCard';
+  let selectedAcademicYear = '2026-2027';
+  let isSidebarCollapsed = false;
+  let paymentNotifications = [];
+  let classSubjects = [];
+
+  async function mount(container, user) {
+    currentStudent = user;
+    currentTab = 'reportCard';
+    selectedAcademicYear = user.academicYear || '2026-2027';
+
+    // Fetch freshest student profile
+    const res = await API.callBackend('getStudentById', { studentId: user.id }, 'Loading profile...');
+    if (res && res.success && res.student) {
+      currentStudent = Object.assign({}, user, res.student);
+    }
+    const noticeRes = await API.callBackend('getStudentPaymentNotifications', { studentId: currentStudent.id }, 'Checking payment notices...');
+    paymentNotifications = (noticeRes && noticeRes.success && Array.isArray(noticeRes.notifications)) ? noticeRes.notifications : [];
+
+    const cRes = await API.callBackend('getCurriculumSubjects', {}, 'Loading class subjects...');
+    const className = currentStudent.className || currentStudent.grade || '';
+    if (cRes && cRes.success && cRes.curriculum && cRes.curriculum[className]) {
+      classSubjects = cRes.curriculum[className];
+    } else {
+      classSubjects = [];
+    }
+
+    renderPortalLayout(container);
+    await loadTab(currentTab);
+  }
+
+  function renderPortalLayout(container) {
+    container.innerHTML = `
+      <div class="portal-layout">
+        <!-- Collapsible Royal Blue Sidebar -->
+        <aside class="portal-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}" id="studentSidebar">
+          <div class="sidebar-header">
+            <div class="sidebar-brand-title">Student Portal</div>
+            <button class="sidebar-toggle-btn" id="sidebarToggleBtn" type="button" title="Toggle Navigation">
+              <img src="assets/icons/text-align-justify.png" alt="Toggle">
+            </button>
+          </div>
+
+          <nav class="sidebar-nav">
+            <div class="nav-section-title">Academic &amp; Records</div>
+            
+            <a class="sidebar-item ${currentTab === 'reportCard' ? 'active' : ''}" data-tab="reportCard">
+              <img src="assets/icons/file-text.png" class="sidebar-icon" alt="">
+              <span class="sidebar-item-label">Report Card</span>
+            </a>
+
+            <a class="sidebar-item ${currentTab === 'finance' ? 'active' : ''}" data-tab="finance">
+              <img src="assets/icons/landmark.png" class="sidebar-icon" alt="">
+              <span class="sidebar-item-label">Financial Statement</span>
+            </a>
+
+            <div class="nav-section-title">Communication</div>
+
+            <a class="sidebar-item ${currentTab === 'messages' ? 'active' : ''}" data-tab="messages">
+              <img src="assets/icons/mail-open.png" class="sidebar-icon" alt="">
+              <span class="sidebar-item-label">School Notices${paymentNotifications.length ? ` <span class="badge badge-danger" style="margin-left:5px;">${paymentNotifications.length}</span>` : ''}</span>
+            </a>
+
+            <div class="nav-section-title">Account</div>
+
+            <a class="sidebar-item ${currentTab === 'settings' ? 'active' : ''}" data-tab="settings">
+              <img src="assets/icons/monitor-cog.png" class="sidebar-icon" alt="">
+              <span class="sidebar-item-label">Settings</span>
+            </a>
+
+            <a class="sidebar-item" id="studentLogoutBtn" data-action="logout" role="button" tabindex="0" style="cursor: pointer;">
+              <img src="assets/icons/log-out.png" class="sidebar-icon" alt="">
+              <span class="sidebar-item-label">Sign Out</span>
+            </a>
+          </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="portal-content">
+          ${paymentNotifications.length ? `<div class="content-card" style="margin-bottom:16px;border:1px solid #fed7aa;background:#fff7ed;">
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <div style="width:38px;height:38px;border-radius:50%;background:#ffedd5;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🔔</div>
+              <div style="flex:1;">
+                <div style="font-weight:800;color:#9a3412;margin-bottom:4px;">Payment Notice${paymentNotifications.length>1?'s':''}</div>
+                <div style="font-size:13px;color:#7c2d12;line-height:1.55;">${paymentNotifications.map(n=>`<div style="margin-top:5px;"><b>${escapeHtml(n.title)}:</b> ${escapeHtml(n.message)}</div>`).join('')}</div>
+              </div>
+            </div>
+          </div>` : ''}
+          <!-- Student Overview Banner -->
+          <div class="content-card" style="margin-bottom: 20px;">
+            <div style="display: flex; gap: 18px; align-items: center; flex-wrap: wrap;">
+              <div style="width: 64px; height: 64px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid var(--color-primary); flex-shrink: 0;">
+                ${currentStudent.photo ? `<img src="${currentStudent.photo}" style="width: 100%; height: 100%; object-fit: cover;">` : `<img src="assets/icons/circle-user-round.png" style="width: 38px; height: 38px;">`}
+              </div>
+              <div style="flex: 1; min-width: 220px;">
+                <h2 style="margin: 0 0 4px; color: var(--color-primary); font-size: 20px;">
+                  ${escapeHtml(currentStudent.name)}
+                </h2>
+                <div style="font-size: 13.5px; color: var(--color-text-muted);">
+                  Student ID: <b>[${escapeHtml(currentStudent.id)}]</b> &bull; Class: <b>${escapeHtml(currentStudent.className || currentStudent.grade)}</b>
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                  <span class="badge ${currentStudent.status === 'Active' ? 'badge-success' : 'badge-danger'}">
+                    ${escapeHtml(currentStudent.status || 'Active')}
+                  </span>
+                  <span class="badge badge-light">
+                    Category: ${currentStudent.studentCategory === 'old' ? 'Returning Student' : 'New Enrollee'}
+                  </span>
+                  ${currentStudent.gradeLocked ? `<span class="badge badge-warning">Clearance Required</span>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Tab Body -->
+          <div id="studentTabContainer"></div>
+        </main>
+      </div>
+    `;
+
+    // Sidebar Toggle
+    const sidebar = document.getElementById('studentSidebar');
+    const toggleBtn = document.getElementById('sidebarToggleBtn');
+    if (toggleBtn && sidebar) {
+      toggleBtn.addEventListener('click', () => {
+        isSidebarCollapsed = !isSidebarCollapsed;
+        sidebar.classList.toggle('collapsed', isSidebarCollapsed);
+      });
+    }
+
+    // Nav Item Click Handlers
+    container.querySelectorAll('.sidebar-item[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        container.querySelectorAll('.sidebar-item[data-tab]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTab = btn.dataset.tab;
+        loadTab(currentTab);
+      });
+    });
+
+    // Logout
+    const logoutBtn = document.getElementById('studentLogoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        if (window.Auth) window.Auth.logout();
+      });
+    }
+  }
+
+  async function loadTab(tab) {
+    const container = document.getElementById('studentTabContainer');
+    if (!container) return;
+    container.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--color-text-muted);">Loading...</div>';
+
+    switch (tab) {
+      case 'reportCard':
+        await renderReportCardTab(container);
+        break;
+      case 'finance':
+        await renderFinanceTab(container);
+        break;
+      case 'messages':
+        await renderMessagesTab(container);
+        break;
+      case 'settings':
+        renderSettingsTab(container);
+        break;
+    }
+  }
+
+  // =========================================================================
+  // 1. REPORT CARD WITH ACADEMIC YEAR SELECTOR
+  // =========================================================================
+  async function renderReportCardTab(container) {
+    if (currentStudent.gradeLocked) {
+      container.innerHTML = `
+        <div class="content-card" style="text-align: center; padding: 48px 20px;">
+          <img src="assets/icons/landmark.png" style="width: 48px; height: 48px; opacity: 0.6; margin-bottom: 12px;" alt="">
+          <h3 style="color: var(--color-warning); margin: 0 0 10px;">Grade Sheet Clearance Required</h3>
+          <p style="max-width: 520px; margin: 0 auto 20px; font-size: 14px; color: var(--color-text-muted); line-height: 1.6;">
+            Your academic report card has been withheld by the school administration pending administrative or financial clearance. Please visit the school business office.
+          </p>
+          <button class="btn btn-primary" id="gotoFinanceBtn">View Financial Statement</button>
+        </div>
+      `;
+      const btn = document.getElementById('gotoFinanceBtn');
+      if (btn) btn.onclick = () => switchTab('finance');
+      return;
+    }
+
+    // Available Academic Years for selection
+    const years = ['2026-2027', '2025-2026', '2024-2025'];
+    if (currentStudent.years) {
+      Object.keys(currentStudent.years).forEach(y => {
+        if (!years.includes(y)) years.push(y);
+      });
+    }
+
+    container.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;" class="no-print">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label style="font-size: 13.5px; font-weight: 600; color: var(--color-primary);" for="academicYearSelect">Academic Year Record:</label>
+          <select id="academicYearSelect" class="select-field" style="width: 160px; padding: 6px 10px;">
+            ${years.map(y => `<option value="${y}" ${y === selectedAcademicYear ? 'selected' : ''}>${y}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div id="reportCardMountPoint"></div>
+    `;
+
+    const selectEl = document.getElementById('academicYearSelect');
+    if (selectEl) {
+      selectEl.addEventListener('change', async (e) => {
+        selectedAcademicYear = e.target.value;
+        await fetchAndRenderReportCard();
+      });
+    }
+
+    await fetchAndRenderReportCard();
+  }
+
+  async function fetchAndRenderReportCard() {
+    const mount = document.getElementById('reportCardMountPoint');
+    if (!mount) return;
+    mount.innerHTML = '<div style="padding: 30px; text-align: center; color: var(--color-text-muted);">Fetching academic evaluations...</div>';
+
+    const res = await API.callBackend('getReportCard', {
+      studentId: currentStudent.id,
+      academicYear: selectedAcademicYear
+    }, 'Loading report card...');
+
+    if (res && res.success && res.reportCard) {
+      ReportCard.render(res.reportCard, mount);
+    } else {
+      mount.innerHTML = `
+        <div class="content-card" style="text-align: center; padding: 36px;">
+          <p style="color: var(--color-text-muted); font-size: 14px;">No report card records filed for academic year ${selectedAcademicYear}.</p>
+        </div>
+      `;
+    }
+  }
+
+  // =========================================================================
+  // 2. FINANCIAL STATEMENT WITH PRINT & DOWNLOAD
+  // =========================================================================
+  async function renderFinanceTab(container) {
+    const branding = (window.App && App.getSettings && App.getSettings()) || {};
+    const res = await API.callBackend('getStudentFinance', { studentId: currentStudent.id }, 'Fetching fee statement...');
+    const f = (res && res.success && res.finance) ? res.finance : (currentStudent.finance || {});
+    const inst = f.installments || [0, 0, 0, 0];
+    const currency = f.currency || 'USD';
+
+    container.innerHTML = `
+      <!-- Action Toolbar -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;" class="no-print">
+        <h3 style="margin: 0; color: var(--color-primary); font-size: 18px;">Official Tuition &amp; Fee Statement</h3>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-light" id="printFinanceBtn" style="display: flex; align-items: center; gap: 6px;">
+            <img src="assets/icons/file-text.png" style="width: 15px; height: 15px;" alt="">
+            Print Statement
+          </button>
+          <button type="button" class="btn btn-primary" id="downloadFinanceBtn" style="display: flex; align-items: center; gap: 6px;">
+            <img src="assets/icons/download (2).png" style="width: 15px; height: 15px; filter: brightness(0) invert(1);" alt="">
+            Download PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Printable Statement Area -->
+      <div id="printableFinanceStatement" class="content-card">
+        <div style="border-bottom: 2px solid var(--color-primary); padding-bottom: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h2 style="margin: 0; color: var(--color-primary); font-size: 19px;">${escapeHtml(branding.schoolName || 'Salvation In Christ School System')}</h2>
+            <div style="font-size: 12.5px; color: var(--color-text-muted);">Official Student Account Financial Statement</div>
+          </div>
+          <div style="text-align: right; font-size: 12.5px;">
+            <div><b>Date:</b> ${new Date().toLocaleDateString()}</div>
+            <div><b>Status:</b> ${f.balance > 0 ? '<span class="score-red">Balance Due</span>' : '<span class="score-green">Cleared</span>'}</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; font-size: 13.5px;">
+          <div><b>Student Name:</b> ${escapeHtml(currentStudent.name)}</div>
+          <div><b>Student ID:</b> [${escapeHtml(currentStudent.id)}]</div>
+          <div><b>Class:</b> ${escapeHtml(currentStudent.className || currentStudent.grade)}</div>
+          <div><b>Academic Year:</b> ${escapeHtml(currentStudent.academicYear || '2026-2027')}</div>
+        </div>
+
+        <div class="stats-grid" style="margin-bottom: 24px;">
+          <div class="stat-card">
+            <div class="stat-label">Total Tuition &amp; Fees Billed</div>
+            <div class="stat-value">${currency} ${(f.tuitionTotal || 0).toLocaleString()}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Amount Paid</div>
+            <div class="stat-value" style="color: var(--color-success);">${currency} ${(f.totalPaid || 0).toLocaleString()}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Remaining Balance</div>
+            <div class="stat-value" style="color: ${(f.balance || 0) > 0 ? 'var(--color-danger)' : 'var(--color-success)'};">
+              ${currency} ${(f.balance || 0).toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        <h4 style="margin: 0 0 10px; color: var(--color-primary); font-size: 14.5px;">Payment Schedule Breakdown</h4>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Schedule Item</th>
+                <th>Amount Billed</th>
+                <th>Amount Paid / Recorded</th>
+                <th>Payment Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Registration Fee</td>
+                <td>${currency} ${f.registrationFee || 0}</td>
+                <td>${currency} ${f.registrationPaid ? (f.registrationFee || 0) : 0}</td>
+                <td>${f.registrationPaid ? '<span class="badge badge-success">Paid</span>' : '<span class="badge badge-warning">Unpaid</span>'}</td>
+              </tr>
+              <tr>
+                <td>1st Installment</td>
+                <td>${currency} ${(f.tuitionTotal || 0) / 4}</td>
+                <td>${currency} ${inst[0] || 0}</td>
+                <td>${inst[0] > 0 ? '<span class="badge badge-success">Recorded</span>' : '<span class="badge badge-light">Pending</span>'}</td>
+              </tr>
+              <tr>
+                <td>2nd Installment</td>
+                <td>${currency} ${(f.tuitionTotal || 0) / 4}</td>
+                <td>${currency} ${inst[1] || 0}</td>
+                <td>${inst[1] > 0 ? '<span class="badge badge-success">Recorded</span>' : '<span class="badge badge-light">Pending</span>'}</td>
+              </tr>
+              <tr>
+                <td>3rd Installment</td>
+                <td>${currency} ${(f.tuitionTotal || 0) / 4}</td>
+                <td>${currency} ${inst[2] || 0}</td>
+                <td>${inst[2] > 0 ? '<span class="badge badge-success">Recorded</span>' : '<span class="badge badge-light">Pending</span>'}</td>
+              </tr>
+              <tr>
+                <td>4th Installment</td>
+                <td>${currency} ${(f.tuitionTotal || 0) / 4}</td>
+                <td>${currency} ${inst[3] || 0}</td>
+                <td>${inst[3] > 0 ? '<span class="badge badge-success">Recorded</span>' : '<span class="badge badge-light">Pending</span>'}</td>
+              </tr>
+              <tr><td>5th Installment</td><td>${currency} ${(f.tuitionTotal || 0) / 5}</td><td>${currency} ${inst[4] || 0}</td><td>${inst[4] > 0 ? '<span class="badge badge-success">Recorded</span>' : '<span class="badge badge-light">Pending</span>'}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        ${Array.isArray(f.deadlines)?f.deadlines.map((d,i)=>d&&new Date(d)<new Date()&&!(inst[i]>0)?`<div style="margin-top:8px;background:#fff7ed;border:1px solid #fed7aa;padding:10px;border-radius:7px;color:#9a3412;font-size:13px;">Payment warning: Your ${i+1}${i===0?'st':i===1?'nd':i===2?'rd':'th'} installment deadline has passed. Please contact the school business office and make this payment as soon as possible.</div>`:'').join(''):''}
+
+        <div style="margin-top: 30px; display: flex; justify-content: space-between; font-size: 12px; color: var(--color-text-muted);">
+          <div>School Business Office Registrar Signature: _________________________</div>
+          <div>Official Seal</div>
+        </div>
+      </div>
+
+      <!-- Payment Receipt Section -->
+      <div class="content-card no-print" style="margin-top: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h3 class="card-title">Official Payment Receipt</h3>
+            <div style="font-size: 13px; color: var(--color-text-muted);">
+              Official school payment receipt slip showing recorded fees and balance.
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="window.StudentPanel.printPaymentReceipt()" style="display: flex; align-items: center; gap: 6px;">
+            <img src="assets/icons/file-text.png" style="width: 15px; height: 15px; filter: brightness(0) invert(1);" alt="">
+            Print Payment Receipt
+          </button>
+        </div>
+
+        <div style="display: flex; justify-content: center; padding: 10px 0;">
+          ${buildReceiptCardHtml(currentStudent)}
+        </div>
+      </div>
+    `;
+
+    document.getElementById('printFinanceBtn').onclick = () => window.print();
+    document.getElementById('downloadFinanceBtn').onclick = () => window.print();
+  }
+
+  // =========================================================================
+  // 3. MESSAGES TAB
+  // =========================================================================
+  async function renderMessagesTab(container) {
+    const res = await API.callBackend('getMessages', {studentId: currentStudent.id, role:'student'}, 'Fetching notices...');
+    const messages = (res && res.success && Array.isArray(res.messages)) ? res.messages : [];
+    const paymentHtml = paymentNotifications.length ? `<div style="margin-bottom:16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px;">
+      <div style="font-weight:800;color:#9a3412;margin-bottom:7px;">Outstanding Payment Notifications</div>
+      ${paymentNotifications.map(n=>`<div style="padding:9px 0;border-top:1px solid #fed7aa;font-size:13px;color:#7c2d12;"><b>${escapeHtml(n.title)}</b><br>${escapeHtml(n.message)}<br><small>Deadline: ${escapeHtml(n.deadline)}</small></div>`).join('')}
+    </div>` : '';
+
+    container.innerHTML = `
+      ${paymentHtml}
+      <div class="content-card">
+        <h3 class="card-title" style="margin-bottom: 16px;">School Announcements &amp; Notices</h3>
+        ${messages.length === 0 ? `
+          <div style="text-align: center; padding: 30px; color: var(--color-text-muted); font-size: 14px;">
+            No announcements broadcasted at this time.
+          </div>
+        ` : `
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            ${messages.map(m => `
+              <div style="border: 1px solid var(--color-border); border-radius: 8px; padding: 14px 18px; background: var(--color-surface);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <strong style="color: var(--color-primary); font-size: 15px;">${escapeHtml(m.subject || 'Announcement')}</strong>
+                  <span style="font-size: 12px; color: var(--color-text-muted);">${escapeHtml(m.sentAt || '')}</span>
+                </div>
+                <div style="font-size: 13.5px; color: var(--color-text); line-height: 1.5;">${escapeHtml(m.body || '')}</div>${m.attachmentUrl?`<div style="margin-top:8px;"><a class="btn btn-light btn-sm" href="${escapeHtml(m.attachmentUrl)}" target="_blank">View Attachment</a></div>`:''}
+                <div style="margin-top: 8px; font-size: 12px; color: var(--color-text-dim);">From: ${escapeHtml(m.senderName || 'School Administration')}</div>
+              </div>
+            `).join('')}
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  // =========================================================================
+  // 4. SETTINGS TAB (Profile photo, display name, password, PWA install)
+  // =========================================================================
+  function renderSettingsTab(container) {
+    container.innerHTML = `
+      <div style="max-width: 600px;">
+        <div class="content-card" style="margin-bottom: 20px;">
+          <h3 class="card-title" style="margin-bottom: 16px;">Profile &amp; Contact Information</h3>
+          
+          <div class="form-group">
+            <label class="form-label">Display Name</label>
+            <input type="text" class="input-field" value="${escapeHtml(currentStudent.name)}" disabled>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Student ID</label>
+            <input type="text" class="input-field" value="${escapeHtml(currentStudent.id)}" disabled>
+          </div>
+          <div class="form-group"><label class="form-label">Portal Login Password</label><input type="text" class="input-field" value="${escapeHtml(currentStudent.password || 'Not available')}" disabled></div>
+          <div style="padding:10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:7px;font-size:12.5px;color:#334155;">These are the exact Student ID and password credentials registered by the school for this portal account.</div>
+
+           <div style="margin-top:14px;padding:12px;background:#f8fafc;border:1px solid var(--color-border);border-radius:8px;">
+             <h4 style="margin:0 0 6px;color:var(--color-primary);font-size:14px;">Class Curriculum Subjects</h4>
+             <div style="font-size:12px;color:#64748b;margin-bottom:8px;">These are the official curriculum subjects configured for ${escapeHtml(currentStudent.className || currentStudent.grade || 'your class')} and recorded on your report card.</div>
+             <div>${Array.isArray(classSubjects) && classSubjects.length
+               ? classSubjects.map(x=>`<span class="badge badge-light" style="margin:2px;">${escapeHtml(x)}</span>`).join('')
+               : '<span style="color:#94a3b8;">No curriculum subjects configured for this class yet.</span>'}</div>
+           </div>
+
+          <div style="padding:12px;background:#f8fafc;border:1px solid var(--color-border);border-radius:8px;color:#64748b;font-size:13px;">Student name, guardian phone number, and profile picture are managed by the school administration and cannot be changed from the student dashboard.</div>
+        </div>
+
+        <div class="content-card" style="margin-bottom: 20px;">
+          <h3 class="card-title" style="margin-bottom: 16px;">Security &amp; Password</h3>
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input type="password" id="studentNewPassword" class="input-field" placeholder="Enter new password (min. 4 characters)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm New Password</label>
+            <input type="password" id="studentConfirmPassword" class="input-field" placeholder="Confirm new password">
+          </div>
+          <button type="button" class="btn btn-primary" id="changePasswordBtn">Change Password</button>
+        </div>
+
+        <div class="content-card">
+          <h3 class="card-title" style="margin-bottom: 12px;">Mobile Application (PWA)</h3>
+          <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 14px;">
+            Install the IE School Management System app directly on your phone or tablet for fast offline access.
+          </p>
+          <button type="button" class="btn btn-light" id="studentPwaBtn" style="display: flex; align-items: center; gap: 8px;">
+            <img src="assets/icons/download (2).png" style="width: 16px; height: 16px;" alt="">
+            Install App to Device
+          </button>
+        </div>
+
+        <div class="content-card" style="margin-top: 20px;">
+          <h3 class="card-title" style="margin-bottom: 12px;">Account Session</h3>
+          <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 14px;">
+            Sign out of your student portal session on this device.
+          </p>
+          <button type="button" class="btn btn-danger" id="studentSettingsSignOutBtn" data-action="logout" style="display: flex; align-items: center; gap: 8px;">
+            <img src="assets/icons/log-out.png" style="width: 16px; height: 16px; filter: brightness(0) invert(1);" alt="">
+            Sign Out
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('changePasswordBtn').onclick = async () => {
+      const p1 = document.getElementById('studentNewPassword').value;
+      const p2 = document.getElementById('studentConfirmPassword').value;
+
+      if (!p1 || p1.length < 4) {
+        API.toastNotification('Password must be at least 4 characters.', true);
+        return;
+      }
+      if (p1 !== p2) {
+        API.toastNotification('Passwords do not match.', true);
+        return;
+      }
+
+      const res = await API.callBackend('updateStudent', {
+        student: { id: currentStudent.id, password: p1 }
+      }, 'Updating password...');
+
+      if (res && res.success) {
+        API.toastSuccess();
+        document.getElementById('studentNewPassword').value = '';
+        document.getElementById('studentConfirmPassword').value = '';
+      } else {
+        API.toastNotification(res.message || 'Error changing password.', true);
+      }
+    };
+
+    document.getElementById('studentPwaBtn').onclick = () => {
+      const btn = document.getElementById('installAppBtn');
+      if (btn) btn.click();
+      else API.toastNotification('App install ready via browser menu (Add to Home Screen).');
+    };
+
+    const signOutBtn = document.getElementById('settingsSignOutBtn');
+    if (signOutBtn) {
+      signOutBtn.onclick = () => {
+        if (window.Auth) window.Auth.logout();
+      };
+    }
+  }
+
+  function printPaymentReceipt() {
+    if (!currentStudent) return;
+    const cardHtml = buildReceiptCardHtml(currentStudent);
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(el => el.outerHTML).join('');
+    const printWin = window.open('', '_blank');
+    printWin.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Payment Receipt - ${escapeHtml(currentStudent.name)}</title>${styles}
+      <style>@page { size: A4 landscape; margin: 6mm; } body{background:#fff;margin:0;padding:4mm;display:flex;justify-content:center;}</style></head><body><div class="receiptPrintGrid">${cardHtml}</div></body></html>`);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); }, 400);
+  }
+
+  function buildReceiptRow(label, amount, currency, dateStr) {
+    if (!amount || Number(amount) <= 0) return '';
+    return `
+      <div class="receiptRow">
+        <div class="receiptRowCheck">✓</div>
+        <div class="receiptRowLabel">${escapeHtml(label)}</div>
+        <div class="receiptRowDate"><small>Payment Date</small>${escapeHtml(dateStr) || '—'}</div>
+        <div class="receiptRowAmount">${formatMoney(amount, currency)}</div>
+      </div>`;
+  }
+
+  function buildReceiptCardHtml(s) {
+    const branding = (window.App && App.getSettings && App.getSettings()) || {};
+    const f = s.finance || {};
+    const currency = f.currency || 'USD';
+    const installments = f.installments || [0, 0, 0, 0];
+    const fallbackDate = f.updatedAt || new Date().toLocaleDateString();
+    const rows = [];
+
+    if (f.entranceFeePaid) rows.push(buildReceiptRow('Entrance Fee', f.entranceFee, currency, fallbackDate));
+    if (f.registrationPaid) rows.push(buildReceiptRow('Registration Fee', f.registrationFee, currency, f.registrationDate || fallbackDate));
+    if (f.requirementsFeePaid) rows.push(buildReceiptRow('Requirements Fee', f.requirementsFee, currency, fallbackDate));
+    if (f.peSuitFeePaid) rows.push(buildReceiptRow('PE Suit Fee', f.peSuitFee, currency, fallbackDate));
+    if (f.portalFeePaid) rows.push(buildReceiptRow('Portal Fee', f.portalFee, currency, fallbackDate));
+    ['1st', '2nd', '3rd', '4th'].forEach((ord, i) => {
+      rows.push(buildReceiptRow(`${ord} Tuition Installment`, installments[i], currency, fallbackDate));
+    });
+    rows.push(buildReceiptRow('Other Payments', f.otherPayments, currency, fallbackDate));
+
+    const rowsHtml = rows.join('') || `<p class="muted" style="padding:10px 0; color:#64748b; font-size:12px;">No payments recorded yet.</p>`;
+
+    const totalPaid =
+      (f.entranceFeePaid ? toNum(f.entranceFee) : 0) +
+      (f.registrationPaid ? toNum(f.registrationFee) : 0) +
+      (f.requirementsFeePaid ? toNum(f.requirementsFee) : 0) +
+      (f.peSuitFeePaid ? toNum(f.peSuitFee) : 0) +
+      (f.portalFeePaid ? toNum(f.portalFee) : 0) +
+      installments.reduce((a, b) => a + toNum(b), 0) +
+      toNum(f.otherPayments);
+
+    const totalBalance = studentBalance(s);
+    return `
+      <div class="receiptCard">
+        <div class="receiptTopBrand">
+          <img class="receiptTopLogo" src="${escapeHtml(branding.logoUrl || 'assets/images/school-logo.png')}" alt="Logo" onerror="this.style.display='none'">
+          <div class="receiptTopSchoolName">${escapeHtml(branding.schoolName || 'Salvation In Christ School System')}</div>
+          <div class="receiptTopMotto">${escapeHtml(branding.schoolMotto || 'Equipping for a Better Future')}</div>
+        </div>
+        <div class="receiptHeaderRule"></div>
+        <div class="receiptStudentPhotoRow">
+          <div class="receiptStudentPhotoBox">${s.photo ? `<img src="${escapeHtml(s.photo)}" alt="Photo">` : '👤'}</div>
+        </div>
+        <div class="receiptTitle">PAYMENT RECEIPT</div>
+        <div class="receiptMetaRow">
+          <div><small>Paid For</small><b>${escapeHtml(s.name)} (${escapeHtml(s.id)})</b></div>
+          <div><small>Date</small><b>${new Date().toLocaleDateString()}</b></div>
+        </div>
+        <div class="receiptRowsWrap">${rowsHtml}</div>
+        <div class="receiptTotalsBar">
+          <div><small>Total Paid</small><b>${formatMoney(totalPaid, currency)}</b></div>
+          <div class="receiptBalanceBlock"><small>Total Balance</small><b class="${totalBalance > 0 ? 'score-red' : 'score-green'}">${formatMoney(totalBalance, currency)}</b></div>
+        </div>
+        <div class="receiptFooterNote">Payments are record-only; no payment is processed online on this website.</div>
+      </div>`;
+  }
+
+  function studentBalance(s) {
+    const f = s.finance || {};
+    const installments = f.installments || [0, 0, 0, 0];
+    const tuitionPaid = installments.reduce((a, b) => a + toNum(b), 0);
+    const tuitionBalance = Math.max(0, toNum(f.tuitionTotal) - tuitionPaid);
+    const regBalance = f.registrationPaid ? 0 : toNum(f.registrationFee);
+    const reqBalance = f.requirementsFeePaid ? 0 : toNum(f.requirementsFee);
+    const peBalance = f.peSuitFeePaid ? 0 : toNum(f.peSuitFee);
+    const portalBalance = f.portalFeePaid ? 0 : toNum(f.portalFee);
+    const entranceBalance = f.entranceFeePaid ? 0 : toNum(f.entranceFee);
+    return tuitionBalance + regBalance + reqBalance + peBalance + portalBalance + entranceBalance;
+  }
+
+  function toNum(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
+  function formatMoney(n, currency) {
+    const num = toNum(n);
+    return (currency || 'USD') + ' ' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function switchTab(tab) {
+    const btn = document.querySelector(`.sidebar-item[data-tab="${tab}"]`);
+    if (btn) btn.click();
+  }
+
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  return {
+    mount: mount,
+    switchTab: switchTab,
+    printPaymentReceipt: printPaymentReceipt
+  };
+})();

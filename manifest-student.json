@@ -1,0 +1,19 @@
+{
+  "id": "sicss-student",
+  "name": "SICSS Portal – Student & Parent",
+  "short_name": "SICSS Student",
+  "description": "Salvation In Christ School System — Student & Parent Academic Gateway.",
+  "start_url": "./index.html",
+  "scope": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#2D0A4E",
+  "theme_color": "#2D0A4E",
+  "icons": [
+    {
+      "src": "assets/images/school-logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}
