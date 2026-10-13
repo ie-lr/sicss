@@ -1,8 +1,7 @@
 /**
  * config.js
  * Salvation In Christ School System (SICSS) Portal
- * Keep backendUrl empty to be filled later with the deployed Apps Script Web App URL.
- */
+  */
 window.APP_CONFIG = {
-  backendUrl: ""
+  backendUrl: "https://script.google.com/macros/s/AKfycbxlSeRpr4Vh7A1bIV5NuVp5KxriSrIN5VT_TojZNvTK24rfAzcTdzBOBz0tGpvgmFF0_g/exec"
 };
